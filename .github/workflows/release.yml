@@ -1,0 +1,59 @@
+name: release
+# The registry's page goes out only from here (decision file 0120, answer A): the owner
+# runs it with a pull request and its head commit, approves the release environment,
+# and only a version carrying the reviewer's signed PASS is built and published.
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request number"
+        required: true
+      sha:
+        description: "Its head commit, the 40 characters the reviewer signed"
+        required: true
+permissions: {}
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The read key is in this step's environment only; this step runs no project code.
+      - name: Check the reviewer's signature and fetch that version
+        env:
+          RELEASE_PR: ${{ inputs.pr }}
+          RELEASE_SHA: ${{ inputs.sha }}
+          RELEASE_REPO: ${{ vars.PROJECT }}
+          RELEASE_TOKEN: ${{ secrets.PROJECT_READ_KEY }}
+        run: python3 release/release.py fetch --out "$RUNNER_TEMP/release"
+      # The key stays in the runner's memory for the whole job and every step may become
+      # root: root is given up, and checked gone, before any project code runs.
+      - name: Give up root before the build
+        run: python3 release/release.py drop-root
+      # The signed version's own build, with no key in reach.
+      - name: Build the page
+        run: python3 release/release.py build --src "$RUNNER_TEMP/release/src" --out "$RUNNER_TEMP/release/page"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/release/page
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
