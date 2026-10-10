@@ -1,0 +1,4 @@
+# The reviewer's signing key: the only thing that lets a version be released.
+# Key lines only: a login proves nothing while the roles act as the owner (0120).
+# A new reviewer key: the owner replaces this line in the public copy (0120 A).
+reviewer ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfCaFBxG4zn0ZyPTBKyAIdzIaaMmnQXPwcuQrTlvUzd
